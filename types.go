@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -62,6 +64,7 @@ type AwsCredentials struct {
 	AWSECRRegistryId   string   `json:"aws_ecr_registry_id,omitempty"`
 	AwsRoleArn         string   `json:"aws_role_arn,omitempty"`
 	AwsRoleArns        []string `json:"aws_role_arns,omitempty"`
+	AwsEC2InstanceRole bool     `json:"aws_ec2_instance_role,omitempty"`
 }
 
 type BasicCredentials struct {
@@ -301,8 +304,40 @@ func (source *Source) AuthenticateToECR() bool {
 
 	mySession := session.Must(session.NewSession(&aws.Config{
 		Region:      aws.String(source.AwsRegion),
-		Credentials: credentials.NewStaticCredentials(source.AwsAccessKeyId, source.AwsSecretAccessKey, source.AwsSessionToken),
 	}))
+
+	if source.AwsEC2InstanceRole {
+		logrus.Warnf("AuthenticateToECR: Using AWS EC2 Role")
+
+		logrus.Info("ENV VARS \n",os.Environ())
+		os.Setenv("no_proxy", "169.254.169.254")
+		logrus.Info("ENV VARS \n",os.Environ())
+
+		roleProvider := &ec2rolecreds.EC2RoleProvider{
+			Client: ec2metadata.New(mySession),
+		}
+		ec2InstanceRoleCredentials := credentials.NewCredentials(roleProvider)
+		_, err := ec2InstanceRoleCredentials.Get()
+		if err != nil {
+			logrus.Errorf("Failed to get AWS Credentials from EC2 Instance Role: %s", err)
+			return false
+		}
+
+		mySession = session.Must(session.NewSession(&aws.Config{
+			Region:      aws.String(source.AwsRegion),
+			Credentials: ec2InstanceRoleCredentials,
+		}))
+
+		logrus.Warn("Got AWS Credentials from EC2 Instance Role")
+
+
+	} else {
+		mySession = session.Must(session.NewSession(&aws.Config{
+			Region:      aws.String(source.AwsRegion),
+			Credentials: credentials.NewStaticCredentials(source.AwsAccessKeyId, source.AwsSecretAccessKey, source.AwsSessionToken),
+		}))
+	}
+
 
 	// Note: This implementation gives precedence to `aws_role_arn` since it
 	// assumes that we've errored if both `aws_role_arn` and `aws_role_arns`

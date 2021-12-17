@@ -75,6 +75,8 @@ differences:
 
 * `aws_region`: *Optional. Default `""`.* The region to use for accessing ECR. This is required if you are using ECR. This region will help determine the full repository URL you are accessing (e.g., `012345678910.dkr.ecr.us-east-1.amazonaws.com`)
 
+* `aws_ec2_instance_role`: *Optional. Default `""`.*  Boolean value, set to true to get EC2 instance role credentials
+
 * `aws_role_arn`: *Optional. Default `""`.* If set, then this role will be
    assumed before authenticating to ECR. An error will occur if `aws_role_arns`
    is also specified. This is kept for backward compatibility.

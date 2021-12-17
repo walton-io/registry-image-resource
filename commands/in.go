@@ -65,7 +65,12 @@ func (i *In) Execute() error {
 
 	dest := i.args[1]
 
-	if req.Source.AwsAccessKeyId != "" && req.Source.AwsSecretAccessKey != "" && req.Source.AwsRegion != "" {
+	if req.Source.AwsAccessKeyId != "" && req.Source.AwsSecretAccessKey != "" && req.Source.AwsRegion != "" || req.Source.AwsRegion != "" && req.Source.AwsEC2InstanceRole  {
+
+		if req.Source.AwsEC2InstanceRole {
+			logrus.Warnf("IN: Using AWS EC2 Role")
+		}
+
 		if !req.Source.AuthenticateToECR() {
 			return fmt.Errorf("cannot authenticate with ECR")
 		}
